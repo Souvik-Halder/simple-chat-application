@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      div#log {
+        width: 800px;
+        height: 300px;
+        margin: 0 auto;
+        border: 5px solid #000;
+        border-radius: 7px;
+      }
+      div#sendCtrls,
+      div#uploadImg {
+        width: 800px;
+        margin: 0 auto;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="setreciever">
+      <input type="text" placeholder="Set your reciever" id="reciever" />
+      <button id="set">set</button>
+    </div>
+    <div id="sendCtrls">
+      <input type="text" placeholder="your message here" id="text" />
+      <button id="send">Send</button>
+    </div>
+    <div id="uploadImg">
+      <input type="file" id="fileInput" />
+      <button onclick="uploadImage()">Upload</button>
+    </div>
+    <div id="log"></div>
+    <div id="senderlog"></div>
+    <div id="recieverlog"></div>
+    <script>
+      var sender = prompt('Enter your name');
+
+      document.getElementById('senderlog').innerText =
+        'Sender name:  ' + sender;
+      var sock = new WebSocket('ws://localhost:5001');
+
+      //setting the sender
+      sock.onopen = function (e) {
+        console.log('Connection established');
+        sock.send(JSON.stringify({ type: 'senderName', data: sender }));
+      };
+
+      //displaying the message
+      var log = document.getElementById('log');
+      sock.onmessage = function (event) {
+        var message = JSON.parse(event.data);
+        if (message.type == 'image') {
+          console.log('I am here');
+          const img = document.createElement('img');
+          img.src = message.data;
+          const imageContainer = document.getElementById('log');
+          imageContainer.appendChild(img);
+          return;
+        }
+
+        console.log(message);
+        log.innerHTML += message.name + ':' + message.data + '<br>';
+      };
+
+      //setting the reciever
+      document.getElementById('set').onclick = function () {
+        var reciever = document.getElementById('reciever').value;
+        document.getElementById('recieverlog').innerText =
+          'Reciever Name:  ' + reciever;
+        sock.send(JSON.stringify({ type: 'receiverName', data: reciever }));
+      };
+
+      //sending the message
+      document.getElementById('send').onclick = function () {
+        var text = document.getElementById('text').value;
+        log.innerHTML += 'You' + text + '<br>';
+        sock.send(JSON.stringify({ type: 'message', data: text }));
+      };
+
+      async function uploadImage() {
+        const file = document.getElementById('fileInput').files[0];
+        const base64 = await generateBase64URLFromFile(file);
+        console.log(base64);
+        sock.send(JSON.stringify({ type: 'image', data: base64 }));
+      }
+
+      function readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64String = reader.result.split(',')[1];
+            resolve(base64String);
+          };
+          reader.onerror = (error) => {
+            reject(error);
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function generateBase64URLFromFile(file) {
+        try {
+          const base64String = await readFileAsBase64(file);
+          const base64URL = `data:application/octet-stream;base64,${base64String}`;
+          return base64URL;
+        } catch (error) {
+          console.error('Error occurred while reading the file:', error);
+          return null;
+        }
+      }
+    </script>
+  </body>
+</html>
